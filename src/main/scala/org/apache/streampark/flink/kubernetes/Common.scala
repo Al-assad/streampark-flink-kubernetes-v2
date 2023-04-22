@@ -1,6 +1,9 @@
 package org.apache.streampark.flink.kubernetes
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature
 import com.typesafe.scalalogging.Logger
 import io.fabric8.kubernetes.client.dsl.{Resource, WatchAndWaitable}
 import io.fabric8.kubernetes.client.*
@@ -8,13 +11,18 @@ import zio.{stream, *}
 import zio.concurrent.{ConcurrentMap, ConcurrentSet}
 import zio.stream.{Stream, UStream, ZStream}
 
+import util.chaining.scalaUtilChainingOps
+
+val jacksonMapper = ObjectMapper()
+
+val yamlMapper = ObjectMapper(YAMLFactory().disable(Feature.WRITE_DOC_START_MARKER))
+  .tap(_.setSerializationInclusion(JsonInclude.Include.NON_NULL))
+
 /**
  * Syntax extension
  */
-extension [A1](value: A1) inline def contra[A2](f: A1 => A2): A2 = f(value)
-
 extension (value: AnyRef)
-  def prettyStr: String                       = value match
+  def prettyStr: String                          = value match
     case v: String => v
     case v         => pprint.apply(value, height = 2000).render
 

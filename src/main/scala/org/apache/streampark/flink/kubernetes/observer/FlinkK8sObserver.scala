@@ -14,8 +14,7 @@ import org.apache.streampark.flink.kubernetes.observer.RestSvcEndpointObserver
 import zio.ZIO.{attempt, sleep}
 import zio.concurrent.{ConcurrentMap, ConcurrentSet}
 import zio.stream.{UStream, ZStream}
-import zio.{durationInt, Fiber, IO, Queue, Ref, RIO, Schedule, Scope, UIO, URIO, ZIO}
-import org.apache.streampark.flink.kubernetes.model.JobStatus
+import zio.{Fiber, IO, Queue, RIO, Ref, Schedule, Scope, UIO, URIO, ZIO, durationInt}
 
 import scala.concurrent.duration.Duration
 
@@ -42,9 +41,6 @@ type AppId     = Long
 
 object FlinkK8sObserver extends FlinkK8sObserver {
 
-  private val evalJobSnapParallelism = 5
-  private val evalJobSnapInterval    = 1.seconds
-
   val trackedKeys       = ConcurrentSet.empty[TrackKey].runNow
   val evaluatedJobSnaps = Ref.make(Map.empty[AppId, JobSnapshot]).runNow
 
@@ -65,7 +61,6 @@ object FlinkK8sObserver extends FlinkK8sObserver {
     .forever
     .forkDaemon
     .run
-
 
   /**
    * Start tracking resources.

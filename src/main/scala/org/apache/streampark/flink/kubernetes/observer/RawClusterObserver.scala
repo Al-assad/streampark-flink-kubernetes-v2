@@ -15,10 +15,6 @@ class RawClusterObserver(
     clusterJobStatusSnaps: ConcurrentMap[(Namespace, Name), Vector[JobStatus]],
     clusterMetricsSnaps: ConcurrentMap[(Namespace, Name), ClusterMetrics]) {
 
-  // TODO make it configurable
-  private val pollingInterval = 1.seconds
-  private val retryInterval   = 2.seconds
-
   private val jobOverviewPollFibers    = ConcurrentMap.empty[(Namespace, Name), Fiber.Runtime[_, _]].runNow
   private val clusterMetricsPollFibers = ConcurrentMap.empty[(Namespace, Name), Fiber.Runtime[_, _]].runNow
 
@@ -46,8 +42,8 @@ class RawClusterObserver(
             case None           => ZIO.fail(RestEndpointNotFound)
             case Some(endpoint) => FlinkRestRequest(endpoint.ipRest).listJobOverviewInfo
           })
-      .retry(Schedule.spaced(retryInterval))
-      .repeat(Schedule.spaced(pollingInterval))
+      .retry(Schedule.spaced(restRetryInterval))
+      .repeat(Schedule.spaced(restPollingInterval))
       .map(jobOverviews => jobOverviews.map(info => JobStatus.fromRest(info)))
       .tap(jobStatuses => clusterJobStatusSnaps.put((namespace, name), jobStatuses))
       .runDrain
@@ -83,8 +79,8 @@ class RawClusterObserver(
               FlinkRestRequest(endpoint.ipRest).getClusterOverview <&>
               FlinkRestRequest(endpoint.ipRest).getJobmanagerConfig
           })
-      .retry(Schedule.spaced(retryInterval))
-      .repeat(Schedule.spaced(pollingInterval))
+      .retry(Schedule.spaced(restRetryInterval))
+      .repeat(Schedule.spaced(restPollingInterval))
       .map { (clusterOv, jmConfigs) =>
 
         val totalJmMemory = Try(MemorySize.parse(jmConfigs.getOrElse("jobmanager.memory.process.size", "0b")).getMebiBytes)
