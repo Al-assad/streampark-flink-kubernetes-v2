@@ -1,9 +1,7 @@
 package org.apache.streampark.flink.kubernetes.hfs
 
-import org.apache.streampark.flink.kubernetes.zioRun
 import zio.{UIO, ZIO}
 import zio.http.*
-import org.apache.streampark.flink.kubernetes.runNow
 
 object FileServer {
 
