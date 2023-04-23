@@ -1,4 +1,4 @@
-package org.apache.streampark.flink.kubernetes.tool
+package org.apache.streampark.flink.kubernetes.util
 
 import zio.stream.{Stream, UStream, ZStream}
 import zio.*

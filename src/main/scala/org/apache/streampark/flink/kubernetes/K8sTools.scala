@@ -1,10 +1,11 @@
-package org.apache.streampark.flink.kubernetes.tool
+package org.apache.streampark.flink.kubernetes
 
 import com.typesafe.scalalogging.Logger
 import io.fabric8.kubernetes.client.*
 import io.fabric8.kubernetes.client.dsl.WatchAndWaitable
 import zio.stream.{UStream, ZStream}
 import zio.{IO, Queue, ZIO}
+import org.apache.streampark.flink.kubernetes.util.runIO
 
 object K8sTools {
 
@@ -52,6 +53,5 @@ object K8sTools {
   }
 
   case class K8sWatcher[R](watch: Watch, stream: UStream[(Watcher.Action, R)])
-
 
 }

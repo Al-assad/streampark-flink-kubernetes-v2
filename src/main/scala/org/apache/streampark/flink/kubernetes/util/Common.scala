@@ -1,4 +1,4 @@
-package org.apache.streampark.flink.kubernetes.tool
+package org.apache.streampark.flink.kubernetes.util
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper

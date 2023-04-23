@@ -2,11 +2,11 @@ package org.apache.streampark.flink.kubernetes.observer
 
 import org.apache.flink.configuration.{JobManagerOptions, MemorySize}
 import org.apache.streampark.flink.kubernetes.FlinkRestRequest
-import org.apache.streampark.flink.kubernetes.model.{ClusterMetrics, JobSnapshot, JobState, JobStatus, RestSvcEndpoint, TrackKey}
+import org.apache.streampark.flink.kubernetes.model.*
+import org.apache.streampark.flink.kubernetes.util.runUIO
 import zio.concurrent.{ConcurrentMap, ConcurrentSet}
-import zio.{durationInt, Chunk, Fiber, Schedule, Scheduler, UIO, ZIO}
 import zio.stream.ZStream
-import org.apache.streampark.flink.kubernetes.runNow
+import zio.{durationInt, Chunk, Fiber, Schedule, Scheduler, UIO, ZIO}
 
 import scala.util.Try
 
@@ -15,8 +15,8 @@ class RawClusterObserver(
     clusterJobStatusSnaps: ConcurrentMap[(Namespace, Name), Vector[JobStatus]],
     clusterMetricsSnaps: ConcurrentMap[(Namespace, Name), ClusterMetrics]) {
 
-  private val jobOverviewPollFibers    = ConcurrentMap.empty[(Namespace, Name), Fiber.Runtime[_, _]].runNow
-  private val clusterMetricsPollFibers = ConcurrentMap.empty[(Namespace, Name), Fiber.Runtime[_, _]].runNow
+  private val jobOverviewPollFibers    = ConcurrentMap.empty[(Namespace, Name), Fiber.Runtime[_, _]].runUIO
+  private val clusterMetricsPollFibers = ConcurrentMap.empty[(Namespace, Name), Fiber.Runtime[_, _]].runUIO
 
   def watch(namespace: String, name: String): UIO[Unit] = {
     watchJobOverviews(namespace, name) *>

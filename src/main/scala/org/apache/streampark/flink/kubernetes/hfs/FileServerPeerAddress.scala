@@ -1,7 +1,7 @@
 package org.apache.streampark.flink.kubernetes.hfs
 
-import org.apache.streampark.flink.kubernetes.tool.K8sTools.{newK8sClient, usingK8sClient}
-import org.apache.streampark.flink.kubernetes.tool.{runIO, runUIO}
+import org.apache.streampark.flink.kubernetes.K8sTools.{newK8sClient, usingK8sClient}
+import org.apache.streampark.flink.kubernetes.util.{runIO, runUIO}
 import zio.logging.backend.SLF4J
 import zio.{durationInt, Ref, UIO, ZIO}
 

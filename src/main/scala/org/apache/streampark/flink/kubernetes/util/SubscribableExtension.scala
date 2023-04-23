@@ -1,9 +1,9 @@
-package org.apache.streampark.flink.kubernetes.tool
+package org.apache.streampark.flink.kubernetes.util
 
-import org.apache.streampark.flink.kubernetes.tool.diff
+import org.apache.streampark.flink.kubernetes.util.diff
 import zio.concurrent.{ConcurrentMap, ConcurrentSet}
 import zio.stream.{UStream, ZStream}
-import zio.{stream, Chunk, Ref, Schedule, *}
+import zio.*
 
 /**
  * Subscription-ready data structure extension for ConcurrentSet

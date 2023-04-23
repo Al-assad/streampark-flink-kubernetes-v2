@@ -2,9 +2,9 @@ package org.apache.streampark.flink.kubernetes.observer
 
 import io.fabric8.kubernetes.client.Watch
 import org.apache.flink.kubernetes.operator.api.FlinkDeployment
-import org.apache.streampark.flink.kubernetes.tool.K8sTools.{usingK8sClient, watchK8sResource}
+import org.apache.streampark.flink.kubernetes.K8sTools.{usingK8sClient, watchK8sResource}
 import org.apache.streampark.flink.kubernetes.model.{DeployCRStatus, JobSnapshot, JobStatus}
-import org.apache.streampark.flink.kubernetes.tool.runUIO
+import org.apache.streampark.flink.kubernetes.util.runUIO
 import zio.{Fiber, IO, UIO, ZIO}
 import zio.concurrent.ConcurrentMap
 
