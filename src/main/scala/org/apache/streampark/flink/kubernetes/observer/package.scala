@@ -7,7 +7,6 @@ import scala.annotation.unused
 package object observer {
 
   // TODO make these configurable.
-
   val evalJobSnapParallelism: Int   = 5
   val evalJobSnapInterval: Duration = 1.seconds
 

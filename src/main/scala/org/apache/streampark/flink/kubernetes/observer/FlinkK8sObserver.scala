@@ -7,14 +7,15 @@ import org.apache.flink.kubernetes.operator.api.FlinkDeployment
 import org.apache.flink.kubernetes.operator.api.lifecycle.ResourceLifecycleState
 import org.apache.flink.kubernetes.operator.api.status.JobManagerDeploymentStatus
 import org.apache.streampark.flink.kubernetes.*
-import org.apache.streampark.flink.kubernetes.K8sTools.watchK8sResource
 import org.apache.streampark.flink.kubernetes.model.*
 import org.apache.streampark.flink.kubernetes.model.TrackKey.*
 import org.apache.streampark.flink.kubernetes.observer.RestSvcEndpointObserver
+import org.apache.streampark.flink.kubernetes.tool.K8sTools.watchK8sResource
+import org.apache.streampark.flink.kubernetes.tool.runUIO
 import zio.ZIO.{attempt, sleep}
 import zio.concurrent.{ConcurrentMap, ConcurrentSet}
 import zio.stream.{UStream, ZStream}
-import zio.{Fiber, IO, Queue, RIO, Ref, Schedule, Scope, UIO, URIO, ZIO, durationInt}
+import zio.{durationInt, Fiber, IO, Queue, Ref, RIO, Schedule, Scope, UIO, URIO, ZIO}
 
 import scala.concurrent.duration.Duration
 
@@ -41,14 +42,14 @@ type AppId     = Long
 
 object FlinkK8sObserver extends FlinkK8sObserver {
 
-  val trackedKeys       = ConcurrentSet.empty[TrackKey].runNow
-  val evaluatedJobSnaps = Ref.make(Map.empty[AppId, JobSnapshot]).runNow
+  val trackedKeys       = ConcurrentSet.empty[TrackKey].runUIO
+  val evaluatedJobSnaps = Ref.make(Map.empty[AppId, JobSnapshot]).runUIO
 
-  val restSvcEndpointSnaps  = ConcurrentMap.empty[(Namespace, Name), RestSvcEndpoint].runNow
-  val deployCRSnaps         = ConcurrentMap.empty[(Namespace, Name), (DeployCRStatus, Option[JobStatus])].runNow
-  val sessionJobCRSnaps     = ConcurrentMap.empty[(Namespace, Name), (SessionJobCRStatus, Option[JobStatus])].runNow
-  val clusterJobStatusSnaps = ConcurrentMap.empty[(Namespace, Name), Vector[JobStatus]].runNow
-  val clusterMetricsSnaps   = ConcurrentMap.empty[(Namespace, Name), ClusterMetrics].runNow
+  val restSvcEndpointSnaps  = ConcurrentMap.empty[(Namespace, Name), RestSvcEndpoint].runUIO
+  val deployCRSnaps         = ConcurrentMap.empty[(Namespace, Name), (DeployCRStatus, Option[JobStatus])].runUIO
+  val sessionJobCRSnaps     = ConcurrentMap.empty[(Namespace, Name), (SessionJobCRStatus, Option[JobStatus])].runUIO
+  val clusterJobStatusSnaps = ConcurrentMap.empty[(Namespace, Name), Vector[JobStatus]].runUIO
+  val clusterMetricsSnaps   = ConcurrentMap.empty[(Namespace, Name), ClusterMetrics].runUIO
 
   private val restSvcEndpointObserver = RestSvcEndpointObserver(restSvcEndpointSnaps)
   private val deployCrObserver        = DeployCRObserver(deployCRSnaps)
@@ -60,7 +61,7 @@ object FlinkK8sObserver extends FlinkK8sObserver {
     .repeat(Schedule.spaced(evalJobSnapInterval))
     .forever
     .forkDaemon
-    .run
+    .runUIO
 
   /**
    * Start tracking resources.

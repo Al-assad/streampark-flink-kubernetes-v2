@@ -1,19 +1,19 @@
 package org.apache.streampark.flink.kubernetes.observer
 
 import io.fabric8.kubernetes.client.{Watch, Watcher}
-import org.apache.streampark.flink.kubernetes.K8sTools.watchK8sResource
+import org.apache.streampark.flink.kubernetes.tool.K8sTools.watchK8sResource
 import org.apache.streampark.flink.kubernetes.model.RestSvcEndpoint
 import org.apache.streampark.flink.kubernetes.observer.{Name, Namespace}
 import zio.concurrent.ConcurrentMap
 import zio.{Fiber, IO, Task, UIO, ZIO}
-import org.apache.streampark.flink.kubernetes.runNow
+import org.apache.streampark.flink.kubernetes.tool.runUIO
 
 import scala.jdk.CollectionConverters.*
 
 class RestSvcEndpointObserver(
     restSvcEndpointSnaps: ConcurrentMap[(Namespace, Name), RestSvcEndpoint]) {
 
-  private val watchFibers = ConcurrentMap.empty[(Namespace, Name), (Watch, Fiber.Runtime[_, _])].runNow
+  private val watchFibers = ConcurrentMap.empty[(Namespace, Name), (Watch, Fiber.Runtime[_, _])].runUIO
 
   /**
    * Monitor Flink REST service resources under the specified namespace and name.

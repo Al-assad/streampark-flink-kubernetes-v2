@@ -2,16 +2,16 @@ package org.apache.streampark.flink.kubernetes.observer
 
 import io.fabric8.kubernetes.client.Watch
 import org.apache.flink.kubernetes.operator.api.FlinkDeployment
-import org.apache.streampark.flink.kubernetes.K8sTools.{usingK8sClient, watchK8sResource}
+import org.apache.streampark.flink.kubernetes.tool.K8sTools.{usingK8sClient, watchK8sResource}
 import org.apache.streampark.flink.kubernetes.model.{DeployCRStatus, JobSnapshot, JobStatus}
-import org.apache.streampark.flink.kubernetes.runNow
+import org.apache.streampark.flink.kubernetes.tool.runUIO
 import zio.{Fiber, IO, UIO, ZIO}
 import zio.concurrent.ConcurrentMap
 
 class DeployCRObserver(
     deployCRSnaps: ConcurrentMap[(Namespace, Name), (DeployCRStatus, Option[JobStatus])]) {
 
-  private val watchFibers = ConcurrentMap.empty[(Namespace, Name), (Watch, Fiber.Runtime[_, _])].runNow
+  private val watchFibers = ConcurrentMap.empty[(Namespace, Name), (Watch, Fiber.Runtime[_, _])].runUIO
 
   /**
    * Monitor the status of K8s FlinkDeployment CR for a specified namespace and name.

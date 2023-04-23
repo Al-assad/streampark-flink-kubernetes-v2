@@ -1,48 +1,9 @@
-package org.apache.streampark.flink.kubernetes
+package org.apache.streampark.flink.kubernetes.tool
 
-import com.fasterxml.jackson.annotation.JsonInclude
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature
-import com.typesafe.scalalogging.Logger
-import io.fabric8.kubernetes.client.dsl.{Resource, WatchAndWaitable}
-import io.fabric8.kubernetes.client.*
-import zio.{stream, *}
+import org.apache.streampark.flink.kubernetes.tool.diff
 import zio.concurrent.{ConcurrentMap, ConcurrentSet}
-import zio.stream.{Stream, UStream, ZStream}
-
-import util.chaining.scalaUtilChainingOps
-
-val jacksonMapper = ObjectMapper()
-
-val yamlMapper = ObjectMapper(YAMLFactory().disable(Feature.WRITE_DOC_START_MARKER))
-  .tap(_.setSerializationInclusion(JsonInclude.Include.NON_NULL))
-
-/**
- * Syntax extension
- */
-extension (value: AnyRef)
-  def prettyStr: String                          = value match
-    case v: String => v
-    case v         => pprint.apply(value, height = 2000).render
-
-/**
- * ZIO extension
- */
-extension [E, A](io: IO[E, A]) inline def run: A = zioRun(io)
-
-extension [A](uio: UIO[A]) inline def runNow: A = zioRun(uio)
-
-extension [E, A](stream: Stream[E, A]) {
-
-  inline def diff: Stream[E, A] = stream.zipWithPrevious
-    .filter((prev, cur) => !prev.contains(cur))
-    .map((_, cur) => cur)
-}
-
-inline def zioRun[E, A](zio: IO[E, A]) = Unsafe.unsafe { implicit u =>
-  Runtime.default.unsafe.run(zio).getOrThrowFiberFailure()
-}
+import zio.stream.{UStream, ZStream}
+import zio.{stream, Chunk, Ref, Schedule, *}
 
 /**
  * Subscription-ready data structure extension for ConcurrentSet

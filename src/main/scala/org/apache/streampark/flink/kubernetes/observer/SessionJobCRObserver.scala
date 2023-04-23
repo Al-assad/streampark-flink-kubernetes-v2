@@ -2,9 +2,9 @@ package org.apache.streampark.flink.kubernetes.observer
 
 import io.fabric8.kubernetes.client.Watch
 import org.apache.flink.kubernetes.operator.api.FlinkSessionJob
-import org.apache.streampark.flink.kubernetes.K8sTools.watchK8sResource
+import org.apache.streampark.flink.kubernetes.tool.K8sTools.watchK8sResource
 import org.apache.streampark.flink.kubernetes.model.{DeployCRStatus, JobStatus, SessionJobCRStatus}
-import org.apache.streampark.flink.kubernetes.runNow
+import org.apache.streampark.flink.kubernetes.tool.runUIO
 import zio.{Fiber, UIO, ZIO}
 import zio.concurrent.ConcurrentMap
 import org.apache.flink.kubernetes.operator.api.status.JobStatus as FlinkJobStatus
@@ -12,7 +12,7 @@ import org.apache.flink.kubernetes.operator.api.status.JobStatus as FlinkJobStat
 class SessionJobCRObserver(
     sessionJobCRSnaps: ConcurrentMap[(Namespace, Name), (SessionJobCRStatus, Option[JobStatus])]) {
 
-  private val watchFibers = ConcurrentMap.empty[(Namespace, Name), (Watch, Fiber.Runtime[_, _])].runNow
+  private val watchFibers = ConcurrentMap.empty[(Namespace, Name), (Watch, Fiber.Runtime[_, _])].runUIO
 
   /**
    * Monitor the status of Flink SessionJob K8s CR for a specified namespace and name.

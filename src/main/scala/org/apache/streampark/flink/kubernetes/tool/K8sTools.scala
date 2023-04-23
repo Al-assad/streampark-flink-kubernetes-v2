@@ -1,4 +1,4 @@
-package org.apache.streampark.flink.kubernetes
+package org.apache.streampark.flink.kubernetes.tool
 
 import com.typesafe.scalalogging.Logger
 import io.fabric8.kubernetes.client.*
@@ -33,7 +33,7 @@ object K8sTools {
                    override def reconnecting(): Boolean = true
 
                    override def eventReceived(action: Watcher.Action, resource: R): Unit = {
-                     queue.offer((action, resource)).run
+                     queue.offer((action, resource)).runIO
                    }
 
                    override def onClose(cause: WatcherException): Unit = {
@@ -42,7 +42,7 @@ object K8sTools {
 
                    override def onClose(): Unit = {
                      super.onClose()
-                     queue.shutdown.run
+                     queue.shutdown.runIO
                      client.close()
                    }
                  }
@@ -52,5 +52,6 @@ object K8sTools {
   }
 
   case class K8sWatcher[R](watch: Watch, stream: UStream[(Watcher.Action, R)])
+
 
 }
