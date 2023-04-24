@@ -12,35 +12,38 @@ object FileMirror {
    * Mirror the file to local mirror directory.
    * Return tuple (namespace, file-name).
    */
-  def mirror(srcFilePath: String, ns: String): IO[Throwable, (String, String)] = ZIO.attemptBlocking {
+  def mirror(srcFilePath: String, subspace: String): IO[Throwable, (String, String)] = ZIO.attemptBlocking {
     val srcPath  = os.Path(srcFilePath)
     val fileName = srcPath.last
     os.copy(
       from = srcPath,
-      to = mirrorRoot / ns / fileName,
+      to = mirrorRoot / subspace / fileName,
       replaceExisting = true,
       createFolders = true,
       mergeFolders = true
     )
-    ns -> fileName
+    subspace -> fileName
   }
 
   /**
    * Get the http access url of the mirrored file resource.
    */
-  def getHttpAccessUrl(ns: String, name: String): UIO[String] = {
+  def getHttpUrl(subspace: String, name: String): UIO[String] = {
     for {
       httpHost <- FileServerPeerAddress.getEnsure
-      url       = s"http://$httpHost:$fileServerPort/$ns/$name"
+      url       = s"http://$httpHost:$fileServerPort/$subspace/$name"
     } yield url
   }
+
+  def mirrorAndGetHttpUrl(srcFilePath: String, ns: String): ZIO[Any, Throwable, String] =
+    mirror(srcFilePath, ns).flatMap((ns, name) => getHttpUrl(ns, name))
 
   /**
    * Get the local File of the mirrored file resource.
    */
-  def getLocalFile(ns: String, name: String): IO[Throwable, File] = {
+  def getLocalFile(subspace: String, name: String): IO[Throwable, File] = {
     for {
-      localFile: File <- ZIO.succeed((mirrorRoot / ns / name).toIO)
+      localFile: File <- ZIO.succeed((mirrorRoot / subspace / name).toIO)
       _               <- ZIO
                            .fail(FileNotFound(localFile.getAbsolutePath))
                            .whenZIO(ZIO.attempt(localFile.exists()).map(!_))

@@ -2,11 +2,16 @@ package org.apache.streampark.flink.kubernetes
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import org.apache.streampark.flink.kubernetes.FlinkRestRequest.*
-import sttp.client3.httpclient.zio.HttpClientZioBackend
-import sttp.client3.ziojson.asJson
+import org.apache.streampark.flink.kubernetes.model.{FlinkPipeOprStates, JobSavepointDef, JobSavepointStatus}
 import sttp.client3.*
+import sttp.client3.httpclient.zio.HttpClientZioBackend
+import sttp.client3.ziojson.*
 import zio.json.{jsonField, JsonCodec}
 import zio.{IO, Task, ZIO}
+
+import scala.util.chaining.scalaUtilChainingOps
+
+type TriggerId = String
 
 /**
  * Flink rest-api request.
@@ -51,6 +56,69 @@ case class FlinkRestRequest(restUrl: String) {
       .attemptBody(ujson.read(_).arr.map(item => item("key").str -> item("value").str).toMap)
   }
 
+  /**
+   * Cancels job.
+   * see: https://nightlies.apache.org/flink/flink-docs-master/docs/ops/rest_api/#jobs-jobid-1
+   */
+  def cancelJob(jobId: String): IO[Throwable, Unit] =
+    usingSttp { backend =>
+      request
+        .patch(uri"$restUrl/jobs/$jobId?mode=cancel")
+        .send(backend)
+        .unit
+    }
+
+  /**
+   * Stops job with savepoint.
+   * see: https://nightlies.apache.org/flink/flink-docs-master/docs/ops/rest_api/#jobs-jobid-stop
+   */
+  def stopJobWithSavepoint(jobId: String, sptReq: StopJobSptReq): IO[Throwable, TriggerId] =
+    usingSttp { backend =>
+      request
+        .post(uri"$restUrl/jobs/$jobId/stop")
+        .body(sptReq)
+        .send(backend)
+        .flattenBody
+        .attemptBody(ujson.read(_)("request-id").str)
+    }
+
+  /**
+   * Triggers a savepoint of job.
+   * see: https://nightlies.apache.org/flink/flink-docs-master/docs/ops/rest_api/#jobs-jobid-savepoints
+   */
+  def triggerSavepoint(jobId: String, sptReq: TriggerSptReq): IO[Throwable, TriggerId] =
+    usingSttp { backend =>
+      request
+        .post(uri"$restUrl/jobs/$jobId/savepoints")
+        .body(sptReq)
+        .send(backend)
+        .flattenBody
+        .attemptBody(ujson.read(_)("request-id").str)
+    }
+
+  /**
+   * Get status of savepoint operation.
+   * see: https://nightlies.apache.org/flink/flink-docs-master/docs/ops/rest_api/#jobs-jobid-savepoints-triggerid
+   */
+  def getSavepointOperationStatus(jobId: String, triggerId: String): IO[Throwable, JobSavepointStatus] =
+    usingSttp { backend =>
+      request
+        .get(uri"$restUrl/jobs/$jobId/savepoints/$triggerId")
+        .send(backend)
+        .flattenBody
+        .attemptBody { body =>
+          val rspJson                  = ujson.read(body)
+          val status                   = rspJson("status")("id").str.pipe(FlinkPipeOprStates.ofRaw)
+          val (location, failureCause) = rspJson("operation").objOpt match
+            case None            => None -> None
+            case Some(operation) =>
+              println(operation)
+              val loc     = operation.get("location").flatMap(_.strOpt)
+              val failure = operation.get("failure-cause").flatMap(_.objOpt.flatMap(_.get("stack-trace").strOpt))
+              loc -> failure
+          JobSavepointStatus(status, failureCause, location)
+        }
+    }
 }
 
 object FlinkRestRequest {
@@ -112,4 +180,26 @@ object FlinkRestRequest {
       @jsonField("jobs-cancelled") jobsCancelled: Int,
       @jsonField("jobs-failed") jobsFailed: Int)
       derives JsonCodec
+
+  case class StopJobSptReq(
+      drain: Boolean = false,
+      formatType: Option[String] = None,
+      targetDirectory: Option[String],
+      triggerId: Option[String] = None)
+      derives JsonCodec
+
+  object StopJobSptReq:
+    def apply(sptConf: JobSavepointDef): StopJobSptReq =
+      StopJobSptReq(sptConf.drain, sptConf.formatType, sptConf.savepointPath, sptConf.triggerId)
+
+  case class TriggerSptReq(
+      @jsonField("cancel-job") cancelJob: Boolean = false,
+      formatType: Option[String] = None,
+      @jsonField("target-directory") targetDirectory: Option[String],
+      triggerId: Option[String] = None)
+      derives JsonCodec
+  
+  object TriggerSptReq:
+    def apply(sptConf: JobSavepointDef): TriggerSptReq =
+      TriggerSptReq(cancelJob = false, sptConf.formatType, sptConf.savepointPath, sptConf.triggerId)
 }

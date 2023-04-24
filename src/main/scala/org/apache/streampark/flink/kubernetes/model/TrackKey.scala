@@ -11,6 +11,8 @@ package org.apache.streampark.flink.kubernetes.model
  */
 sealed trait TrackKey {
   val id: Long
+  def clusterNamespace: String
+  def clusterName: String
 }
 
 object TrackKey {
@@ -22,10 +24,24 @@ object TrackKey {
   def unmanagedSessionJob(id: Long, clusterNs: String, clusterName: String, jid: String): UnmanagedSessionJobKey =
     UnmanagedSessionJobKey(id, clusterNs, clusterName, jid)
 
-  case class ApplicationJobKey(id: Long, namespace: String, name: String)                  extends TrackKey
-  case class SessionJobKey(id: Long, namespace: String, name: String, clusterName: String) extends TrackKey
-  case class ClusterKey(id: Long, namespace: String, name: String)                         extends TrackKey
+  case class ApplicationJobKey(id: Long, namespace: String, name: String) extends TrackKey {
+    lazy val clusterNamespace = namespace
+    lazy val clusterName      = name
+  }
+
+  case class SessionJobKey(id: Long, namespace: String, name: String, clusterName: String) extends TrackKey {
+    lazy val clusterNamespace = namespace
+  }
+
+  case class ClusterKey(id: Long, namespace: String, name: String) extends TrackKey {
+    lazy val clusterNamespace = namespace
+    lazy val clusterName      = name
+  }
 
   // Compatible with previous versions of tasks submitted directly to flink-k8s-session
-  case class UnmanagedSessionJobKey(id: Long, clusterNs: String, clusterId: String, jid: String) extends TrackKey
+  case class UnmanagedSessionJobKey(id: Long, namespace: String, clusterId: String, jid: String) extends TrackKey {
+    lazy val clusterNamespace = namespace
+    lazy val clusterName      = clusterId
+  }
+
 }

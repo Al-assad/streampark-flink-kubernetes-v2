@@ -1,9 +1,8 @@
 package org.apache.streampark.flink.kubernetes.util
 
-import org.apache.streampark.flink.kubernetes.util.diff
+import zio.*
 import zio.concurrent.{ConcurrentMap, ConcurrentSet}
 import zio.stream.{UStream, ZStream}
-import zio.*
 
 /**
  * Subscription-ready data structure extension for ConcurrentSet
@@ -14,7 +13,7 @@ implicit class ConcurrentSetExtension[E](set: ConcurrentSet[E]) {
     ZStream
       .fromZIO(set.toSet)
       .repeat(Schedule.spaced(interval))
-      .diff
+      .changes
 
   def flatSub(interval: Duration = 500.millis): UStream[E] =
     ZStream
@@ -37,7 +36,7 @@ implicit class ConcurrentMapExtension[K, V](map: ConcurrentMap[K, V]) {
     ZStream
       .fromZIO(map.toChunk)
       .repeat(Schedule.spaced(interval))
-      .diff
+      .changes
 
   // noinspection DuplicatedCode
   def flatSub(interval: Duration = 500.millis) =
@@ -56,6 +55,7 @@ implicit class ConcurrentMapExtension[K, V](map: ConcurrentMap[K, V]) {
 
   def flatSubValues(interval: Duration = 500.millis): UStream[V] =
     flatSub(interval).map(_._2)
+
 }
 
 /**
@@ -67,7 +67,7 @@ implicit class RefMapExtension[K, V](ref: Ref[Map[K, V]]) {
     ZStream
       .fromZIO(ref.get.map(m => Chunk.fromIterable(m)))
       .repeat(Schedule.spaced(interval))
-      .diff
+      .changes
 
   // noinspection DuplicatedCode
   def flatSub(interval: Duration = 500.millis) =
@@ -86,4 +86,6 @@ implicit class RefMapExtension[K, V](ref: Ref[Map[K, V]]) {
 
   def flatSubValues(interval: Duration = 500.millis): UStream[V] =
     flatSub(interval).map(_._2)
+
+  def getValue(key: K): UIO[Option[V]] = ref.get.map(_.get(key))
 }

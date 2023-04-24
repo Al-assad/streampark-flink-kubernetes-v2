@@ -40,7 +40,7 @@ class RawClusterObserver(
           .get(namespace, name)
           .flatMap {
             case None           => ZIO.fail(RestEndpointNotFound)
-            case Some(endpoint) => FlinkRestRequest(endpoint.ipRest).listJobOverviewInfo
+            case Some(endpoint) => FlinkRestRequest(endpoint.chooseRest).listJobOverviewInfo
           })
       .retry(Schedule.spaced(restRetryInterval))
       .repeat(Schedule.spaced(restPollingInterval))
@@ -76,8 +76,8 @@ class RawClusterObserver(
           .flatMap {
             case None           => ZIO.fail(RestEndpointNotFound)
             case Some(endpoint) =>
-              FlinkRestRequest(endpoint.ipRest).getClusterOverview <&>
-              FlinkRestRequest(endpoint.ipRest).getJobmanagerConfig
+              FlinkRestRequest(endpoint.chooseRest).getClusterOverview <&>
+              FlinkRestRequest(endpoint.chooseRest).getJobmanagerConfig
           })
       .retry(Schedule.spaced(restRetryInterval))
       .repeat(Schedule.spaced(restPollingInterval))

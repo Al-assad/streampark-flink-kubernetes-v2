@@ -93,16 +93,27 @@ case class TaskManagerDef(
 
 case class IngressDef(
     template: String,
-    className: String,
+    className: Option[String] = None,
     annotations: Map[String, String] = Map.empty) {
 
   def toIngressSpec: IngressSpec = {
     val spec = IngressSpec()
     spec.setTemplate(template)
-    spec.setClassName(className)
+    className.foreach(spec.setClassName)
     if annotations.nonEmpty then spec.setAnnotations(annotations.asJava)
     spec
   }
+}
+
+object IngressDef {
+  def simplePathBased: IngressDef = IngressDef(
+    template = "/{{namespace}}/{{name}}(/|$)(.*)",
+    annotations = Map("nginx.ingress.kubernetes.io/rewrite-target" -> "/$2")
+  )
+
+  def simpleDomainBased: IngressDef = IngressDef(
+    template = "{{name}}.{{namespace}}.flink.k8s.io"
+  )
 }
 
 case class JobDef(

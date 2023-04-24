@@ -18,8 +18,3 @@ extension [E, A](io: IO[E, A])
 extension [A](uio: UIO[A]) {
   inline def runUIO: A = unsafeRun(uio)
 }
-
-extension [R, E, A](stream: ZStream[R, E, A])
-  inline def diff: ZStream[R, E, A] = stream.zipWithPrevious
-    .filter((prev, cur) => !prev.contains(cur))
-    .map((_, cur) => cur)

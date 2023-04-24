@@ -12,4 +12,9 @@ package object observer {
 
   val restPollingInterval: Duration = 1.seconds
   val restRetryInterval: Duration   = 2.seconds
+
+  val reachFlinkRestType: AccessFlinkRestType = AccessFlinkRestType.IP
+
+  enum AccessFlinkRestType:
+    case DNS, IP
 }

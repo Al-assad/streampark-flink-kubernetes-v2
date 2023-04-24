@@ -7,7 +7,7 @@ object FileServer {
 
   private val routes = Http.collectHttp[Request] {
     case Method.GET -> !! / "health"         => Handler.ok.toHttp
-    case Method.GET -> !! / "fs" / ns / name => Http.fromFileZIO(FileMirror.getLocalFile(ns, name))
+    case Method.GET -> !! / "fs" / subspace / name => Http.fromFileZIO(FileMirror.getLocalFile(subspace, name))
   }
 
   /**
