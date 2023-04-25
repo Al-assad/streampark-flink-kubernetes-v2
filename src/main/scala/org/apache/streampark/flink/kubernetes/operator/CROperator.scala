@@ -50,28 +50,32 @@ object CROperator extends CROperator {
     lazy val mirrorSpace = s"${spec.namespace}_${spec.name}"
     for {
       // Generate FlinkDeployment CR
-      correctedJob     <- mirrorJobJarToHttpFileServer(spec.job, mirrorSpace)
-      correctedExtJars <- mirrorExtJarsToHttpFileServer(spec.extJarPaths, mirrorSpace)
-      correctedPod     <- correctPodSpec(spec.podTemplate, correctedExtJars)
-      correctedSpec     = spec.copy(
-                            job = correctedJob,
-                            extJarPaths = correctedExtJars,
-                            podTemplate = correctedPod
-                          )
-      flinkDeployCR     = correctedSpec.toFlinkDeployment
+      correctedJob        <- mirrorJobJarToHttpFileServer(spec.job, mirrorSpace)
+      correctedExtJars    <- mirrorExtJarsToHttpFileServer(spec.extJarPaths, mirrorSpace)
+      correctedPod        <- correctPodSpec(spec.podTemplate, correctedExtJars ++ correctedJob.map(_.jarURI).filter(_.startsWith("http://")).toArray)
+      correctedLocalUriJob = correctedJob.map { jobDef =>
+                               if !jobDef.jarURI.startsWith("http://") then jobDef
+                               else jobDef.copy("local:///opt/flink/lib/" + pathLastSegment(jobDef.jarURI))
+                             }
+      correctedSpec        = spec.copy(
+                               job = correctedLocalUriJob,
+                               extJarPaths = correctedExtJars,
+                               podTemplate = correctedPod
+                             )
+      flinkDeployCR        = correctedSpec.toFlinkDeployment
       // Logging CR yaml
-      _                <- ZIO
-                            .attempt(yamlMapper.writeValueAsString(flinkDeployCR))
-                            .catchAll(e => ZIO.succeed(e.getMessage))
-                            .flatMap(yaml => ZIO.logInfo(s"[StreamPark] Applying FlinkDeployment K8s CR: \n${yaml}"))
-                            .when(logFlinkCrYaml)
+      _                   <- ZIO
+                               .attempt(yamlMapper.writeValueAsString(flinkDeployCR))
+                               .catchAll(e => ZIO.succeed(e.getMessage))
+                               .flatMap(yaml => ZIO.logInfo(s"[StreamPark] Applying FlinkDeployment K8s CR: \n${yaml}"))
+                               .when(logFlinkCrYaml)
 
       // Apply FlinkDeployment CR to kubernetes
-      isCrExist        <- FlinkK8sObserver.getFlinkDeploymentCrSpec(spec.namespace, spec.name).map(_.isDefined)
-      _                <- usingK8sClient { client =>
-                            if isCrExist then client.resource(flinkDeployCR).update()
-                            else client.resource(flinkDeployCR).create()
-                          }
+      isCrExist           <- FlinkK8sObserver.getFlinkDeploymentCrSpec(spec.namespace, spec.name).map(_.isDefined)
+      _                   <- usingK8sClient { client =>
+                               if isCrExist then client.resource(flinkDeployCR).update()
+                               else client.resource(flinkDeployCR).create()
+                             }
     } yield ()
   } *> ZIO.logInfo(s"[StreamPark] Successfully apply FlinkDeployment K8s CR: namespace=${spec.namespace}, name=${spec.name}")
 

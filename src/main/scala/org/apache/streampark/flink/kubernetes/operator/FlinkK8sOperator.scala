@@ -69,11 +69,7 @@ object FlinkK8sOperator extends FlinkK8sOperator {
     for {
       _       <- k8sCrOpr.applyDeployment(spec.copy(job = None))
       trackKey = TrackKey.cluster(id, spec.namespace, spec.name)
-      _       <- obr
-                   .track(trackKey)
-                   .tapErrorCause(cause =>
-                     logErrorCause(s"[StreamPark] Failed to track K8s Flink Cluster: namespace=${spec.namespace}, name=${spec.name})", cause))
-                   .ignore
+      _       <- obr.track(trackKey)
     } yield trackKey
   }
 
@@ -84,11 +80,7 @@ object FlinkK8sOperator extends FlinkK8sOperator {
     for {
       _       <- k8sCrOpr.applyDeployment(spec)
       trackKey = TrackKey.appJob(appId, spec.namespace, spec.name)
-      _       <- obr
-                   .track(trackKey)
-                   .tapErrorCause(cause =>
-                     logErrorCause(s"[StreamPark] Failed to track K8s Flink Application Job: namespace=${spec.namespace}, name=${spec.name})", cause))
-                   .ignore
+      _       <- obr.track(trackKey)
     } yield trackKey
   }
 
@@ -99,11 +91,7 @@ object FlinkK8sOperator extends FlinkK8sOperator {
     for {
       _       <- k8sCrOpr.applySessionJob(spec)
       trackKey = TrackKey.sessionJob(appId, spec.namespace, spec.name, spec.deploymentName)
-      _       <- obr
-                   .track(trackKey)
-                   .tapErrorCause(cause =>
-                     logErrorCause(s"[StreamPark] Failed to track K8s Flink Session Job: namespace=${spec.namespace}, name=${spec.name})", cause))
-                   .ignore
+      _       <- obr.track(trackKey)
     } yield trackKey
   }
 

@@ -37,9 +37,9 @@ object JobStatus {
     jobId = status.getJobId,
     jobName = status.getJobName,
     state = Try(JobState.valueOf(status.getState)).getOrElse(JobState.UNKNOWN),
-    startTs = status.getStartTime.toLong,
+    startTs = Try(status.getStartTime.toLong).getOrElse(0L),
     endTs = None,
-    updatedTs = status.getUpdateTime.toLong,
+    updatedTs = Try(status.getUpdateTime.toLong).getOrElse(0L),
     tasks = None
   )
 }

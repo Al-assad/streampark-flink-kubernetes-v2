@@ -13,7 +13,7 @@ object FileMirror {
    * Return tuple (namespace, file-name).
    */
   def mirror(srcFilePath: String, subspace: String): IO[Throwable, (String, String)] = ZIO.attemptBlocking {
-    val srcPath  = os.Path(srcFilePath)
+    val srcPath  = os.Path(File(srcFilePath).getAbsolutePath)
     val fileName = srcPath.last
     os.copy(
       from = srcPath,
@@ -31,7 +31,7 @@ object FileMirror {
   def getHttpUrl(subspace: String, name: String): UIO[String] = {
     for {
       httpHost <- FileServerPeerAddress.getEnsure
-      url       = s"http://$httpHost:$fileServerPort/$subspace/$name"
+      url       = s"http://$httpHost:$fileServerPort/fs/$subspace/$name"
     } yield url
   }
 

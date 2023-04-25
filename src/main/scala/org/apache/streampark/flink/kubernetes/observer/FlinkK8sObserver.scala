@@ -79,8 +79,8 @@ object FlinkK8sObserver extends FlinkK8sObserver {
   val restSvcEndpointSnaps = ConcurrentMap.empty[(Namespace, Name), RestSvcEndpoint].runUIO
   val clusterMetricsSnaps  = ConcurrentMap.empty[(Namespace, Name), ClusterMetrics].runUIO
 
-  private[observer] val deployCRSnaps         = ConcurrentMap.empty[(Namespace, Name), (DeployCRStatus, Option[JobStatus])].runUIO
-  private[observer] val sessionJobCRSnaps     = ConcurrentMap.empty[(Namespace, Name), (SessionJobCRStatus, Option[JobStatus])].runUIO
+  val deployCRSnaps                           = ConcurrentMap.empty[(Namespace, Name), (DeployCRStatus, Option[JobStatus])].runUIO
+  val sessionJobCRSnaps                       = ConcurrentMap.empty[(Namespace, Name), (SessionJobCRStatus, Option[JobStatus])].runUIO
   private[observer] val clusterJobStatusSnaps = ConcurrentMap.empty[(Namespace, Name), Vector[JobStatus]].runUIO
 
   private val restSvcEndpointObserver = RestSvcEndpointObserver(restSvcEndpointSnaps)
@@ -118,7 +118,7 @@ object FlinkK8sObserver extends FlinkK8sObserver {
       case ClusterKey(id, ns, name)                              => trackCluster(ns, name)
     }
   } *> trackedKeys.add(key)
-    *> logInfo(s"[StreamPark] Start watching Flink resource: ${key.prettyStr}")
+    *> logInfo(s"[StreamPark] Start watching Flink resource: ${key}")
 
   /**
    * Stop tracking resources.
@@ -167,7 +167,7 @@ object FlinkK8sObserver extends FlinkK8sObserver {
     }
   }
     *> trackedKeys.remove(key).unit
-    *> logInfo(s"[StreamPark] Stop watching Flink resource: ${key.prettyStr}")
+    *> logInfo(s"[StreamPark] Stop watching Flink resource: ${key}")
 
   /**
    * Re-evaluate all job status snapshots from caches.
