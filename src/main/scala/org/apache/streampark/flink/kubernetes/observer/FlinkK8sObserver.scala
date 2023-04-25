@@ -3,17 +3,17 @@ package org.apache.streampark.flink.kubernetes.observer
 import com.typesafe.scalalogging.Logger
 import io.fabric8.kubernetes.client.dsl.Resource
 import io.fabric8.kubernetes.client.{KubernetesClient, Watch, Watcher, WatcherException}
-import org.apache.flink.kubernetes.operator.api.{FlinkDeployment, FlinkSessionJob}
 import org.apache.flink.kubernetes.operator.api.lifecycle.ResourceLifecycleState
+import org.apache.flink.kubernetes.operator.api.spec.{FlinkDeploymentSpec, FlinkSessionJobSpec}
 import org.apache.flink.kubernetes.operator.api.status.JobManagerDeploymentStatus
+import org.apache.flink.kubernetes.operator.api.{FlinkDeployment, FlinkSessionJob}
 import org.apache.streampark.flink.kubernetes.*
+import org.apache.streampark.flink.kubernetes.K8sTools.{usingK8sClient, watchK8sResource}
 import org.apache.streampark.flink.kubernetes.model.*
 import org.apache.streampark.flink.kubernetes.model.TrackKey.*
 import org.apache.streampark.flink.kubernetes.observer.*
-import K8sTools.{usingK8sClient, watchK8sResource}
-import org.apache.flink.kubernetes.operator.api.spec.FlinkDeploymentSpec
-import org.apache.streampark.flink.kubernetes.util.runUIO
-import zio.ZIO.{attempt, sleep}
+import org.apache.streampark.flink.kubernetes.util.{runUIO, PrettyStringExtension}
+import zio.ZIO.{attempt, logInfo, sleep}
 import zio.concurrent.{ConcurrentMap, ConcurrentSet}
 import zio.stream.{UStream, ZStream}
 import zio.{durationInt, Fiber, IO, Queue, Ref, RIO, Schedule, Scope, UIO, URIO, ZIO}
@@ -24,19 +24,64 @@ type Namespace = String
 type Name      = String
 type AppId     = Long
 
+trait FlinkK8sObserver {
+
+  /**
+   * Start tracking resources.
+   */
+  def track(key: TrackKey): UIO[Unit]
+
+  /**
+   * Stop tracking resources.
+   */
+  def untrack(key: TrackKey): UIO[Unit]
+
+  /**
+   * All tracked key in observer.
+   */
+  def trackedKeys: ConcurrentSet[TrackKey]
+
+  /**
+   * Snapshots of the Flink jobs that have been evaluated.
+   */
+  def evaluatedJobSnaps: Ref[Map[AppId, JobSnapshot]]
+
+  /**
+   * Flink rest service endpoint snapshots cache.
+   */
+  def restSvcEndpointSnaps: ConcurrentMap[(Namespace, Name), RestSvcEndpoint]
+
+  /**
+   * Flink cluster metrics snapshots.
+   */
+  def clusterMetricsSnaps: ConcurrentMap[(Namespace, Name), ClusterMetrics]
+
+  /**
+   * Get Flink Deployment CR spec from K8s.
+   */
+  def getFlinkDeploymentCrSpec(ns: String, name: String): IO[Throwable, Option[FlinkDeploymentSpec]]
+
+  /**
+   * Get Flink SessionJob CR spec from K8s.
+   */
+  def getFlinkSessionJobCrSpec(ns: String, name: String): IO[Throwable, Option[FlinkSessionJobSpec]]
+
+}
+
 /**
  * Flink Kubernetes resource observer.
  */
-object FlinkK8sObserver {
+object FlinkK8sObserver extends FlinkK8sObserver {
 
-  val trackedKeys       = ConcurrentSet.empty[TrackKey].runUIO
-  val evaluatedJobSnaps = Ref.make(Map.empty[AppId, JobSnapshot]).runUIO
+  val trackedKeys = ConcurrentSet.empty[TrackKey].runUIO
 
-  val restSvcEndpointSnaps  = ConcurrentMap.empty[(Namespace, Name), RestSvcEndpoint].runUIO
-  val deployCRSnaps         = ConcurrentMap.empty[(Namespace, Name), (DeployCRStatus, Option[JobStatus])].runUIO
-  val sessionJobCRSnaps     = ConcurrentMap.empty[(Namespace, Name), (SessionJobCRStatus, Option[JobStatus])].runUIO
-  val clusterJobStatusSnaps = ConcurrentMap.empty[(Namespace, Name), Vector[JobStatus]].runUIO
-  val clusterMetricsSnaps   = ConcurrentMap.empty[(Namespace, Name), ClusterMetrics].runUIO
+  val evaluatedJobSnaps    = Ref.make(Map.empty[AppId, JobSnapshot]).runUIO
+  val restSvcEndpointSnaps = ConcurrentMap.empty[(Namespace, Name), RestSvcEndpoint].runUIO
+  val clusterMetricsSnaps  = ConcurrentMap.empty[(Namespace, Name), ClusterMetrics].runUIO
+
+  private[observer] val deployCRSnaps         = ConcurrentMap.empty[(Namespace, Name), (DeployCRStatus, Option[JobStatus])].runUIO
+  private[observer] val sessionJobCRSnaps     = ConcurrentMap.empty[(Namespace, Name), (SessionJobCRStatus, Option[JobStatus])].runUIO
+  private[observer] val clusterJobStatusSnaps = ConcurrentMap.empty[(Namespace, Name), Vector[JobStatus]].runUIO
 
   private val restSvcEndpointObserver = RestSvcEndpointObserver(restSvcEndpointSnaps)
   private val deployCrObserver        = DeployCRObserver(deployCRSnaps)
@@ -53,7 +98,7 @@ object FlinkK8sObserver {
   /**
    * Start tracking resources.
    */
-  def track(key: TrackKey): IO[Throwable, Unit] = {
+  def track(key: TrackKey): UIO[Unit] = {
 
     def trackCluster(ns: String, name: String) = {
       deployCrObserver.watch(ns, name) *>
@@ -72,7 +117,8 @@ object FlinkK8sObserver {
       case UnmanagedSessionJobKey(id, clusterNs, clusterId, jid) => trackCluster(clusterNs, clusterId)
       case ClusterKey(id, ns, name)                              => trackCluster(ns, name)
     }
-  } *> trackedKeys.add(key).unit
+  } *> trackedKeys.add(key)
+    *> logInfo(s"[StreamPark] Start watching Flink resource: ${key.prettyStr}")
 
   /**
    * Stop tracking resources.
@@ -119,7 +165,9 @@ object FlinkK8sObserver {
       case ClusterKey(id, ns, name)                                => unTrackPureCluster(ns, name)
       case UnmanagedSessionJobKey(id, clusterNs, clusterName, jid) => unTrackUnmanagedSessionJob(clusterNs, clusterName)
     }
-  } *> trackedKeys.remove(key).unit
+  }
+    *> trackedKeys.remove(key).unit
+    *> logInfo(s"[StreamPark] Stop watching Flink resource: ${key.prettyStr}")
 
   /**
    * Re-evaluate all job status snapshots from caches.
@@ -197,7 +245,7 @@ object FlinkK8sObserver {
   /**
    * Get Flink SessionJob CR spec from K8s.
    */
-  def getFlinkSessionJobCrSpec(ns: String, name: String) = {
+  def getFlinkSessionJobCrSpec(ns: String, name: String): IO[Throwable, Option[FlinkSessionJobSpec]] = {
     usingK8sClient { client =>
       Option(
         client

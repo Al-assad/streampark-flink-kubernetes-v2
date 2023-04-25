@@ -13,11 +13,13 @@ val jacksonMapper: ObjectMapper = ObjectMapper()
 val yamlMapper: ObjectMapper = ObjectMapper(YAMLFactory().disable(Feature.WRITE_DOC_START_MARKER))
   .tap(_.setSerializationInclusion(JsonInclude.Include.NON_NULL))
 
-implicit class PrettyStringExtension(value: AnyRef) {
-  def prettyStr: String = value match
-    case v: String => v
-    case v         => pprint.apply(v, height = 2000).render
+implicit class PrettyStringExtension(value: Any) {
+  def prettyStr: String = toPrettyString(value)
 }
+
+inline def toPrettyString(value: Any): String = value match
+  case v: String => v
+  case v         => pprint.apply(v, height = 2000).render
 
 implicit def liftValueAsSome[A](value: A): Option[A] = Some(value)
 

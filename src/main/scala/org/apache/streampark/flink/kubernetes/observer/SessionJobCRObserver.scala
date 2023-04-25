@@ -1,8 +1,9 @@
 package org.apache.streampark.flink.kubernetes.observer
 
+import io.fabric8.kubernetes.api.model.Service
 import io.fabric8.kubernetes.client.Watch
 import org.apache.flink.kubernetes.operator.api.FlinkSessionJob
-import org.apache.streampark.flink.kubernetes.K8sTools.watchK8sResource
+import org.apache.streampark.flink.kubernetes.K8sTools.{watchK8sResource, watchK8sResourceForever, K8sResourceWatcher}
 import org.apache.streampark.flink.kubernetes.model.{DeployCRStatus, JobStatus, SessionJobCRStatus}
 import org.apache.streampark.flink.kubernetes.util.runUIO
 import zio.{Fiber, UIO, ZIO}
@@ -12,48 +13,40 @@ import org.apache.flink.kubernetes.operator.api.status.JobStatus as FlinkJobStat
 class SessionJobCRObserver(
     sessionJobCRSnaps: ConcurrentMap[(Namespace, Name), (SessionJobCRStatus, Option[JobStatus])]) {
 
-  private val watchFibers = ConcurrentMap.empty[(Namespace, Name), (Watch, Fiber.Runtime[_, _])].runUIO
+  private val watchers = ConcurrentMap.empty[(Namespace, Name), K8sResourceWatcher[FlinkSessionJob]].runUIO
 
   /**
    * Monitor the status of Flink SessionJob K8s CR for a specified namespace and name.
    */
   // noinspection DuplicatedCode
-  def watch(namespace: String, name: String) = {
-    watchFibers.get((namespace, name)).flatMap {
+  def watch(namespace: String, name: String): UIO[Unit] =
+    watchers.get((namespace, name)).flatMap {
       case Some(_) => ZIO.unit
       case None    =>
-        launchProc(namespace, name)
-          .flatMap(hook => watchFibers.put((namespace, name), hook))
-          .unit
+        val watch = launchProc(namespace, name)
+        watchers.put((namespace, name), watch) *>
+        watch.launch
     }
-  }
 
   // noinspection DuplicatedCode
-  def unWatch(namespace: String, name: String): UIO[Unit] = {
-    watchFibers.get((namespace, name)).flatMap {
-      case None                 => ZIO.unit
-      case Some((watch, fiber)) =>
-        watchFibers.remove((namespace, name)) *>
-        ZIO.attempt(watch.close()).ignore *>
-        fiber.interrupt.unit
+  def unWatch(namespace: String, name: String): UIO[Unit] =
+    watchers.get((namespace, name)).flatMap {
+      case None          => ZIO.unit
+      case Some(watcher) => watcher.stop *> watchers.remove((namespace, name)).unit
     }
-  }
 
-  private def launchProc(namespace: String, name: String) =
-    for {
-      watcher <- watchK8sResource { client =>
-                   client
-                     .resources(classOf[FlinkSessionJob])
-                     .inNamespace(namespace)
-                     .withName(name)
-                 }
-      fiber   <- watcher.stream
-                   // Eval SessionJobCR status
-                   .map((action, cr) => SessionJobCRStatus.eval(action, cr) -> Option(cr.getStatus.getJobStatus).map(JobStatus.fromCR))
-                   // Update SessionJobCR status cache
-                   .tap(status => sessionJobCRSnaps.put((namespace, name), status))
-                   .runDrain
-                   .forkDaemon
-    } yield (watcher.watch, fiber)
+  private def launchProc(namespace: String, name: String): K8sResourceWatcher[FlinkSessionJob] =
+    watchK8sResourceForever { client =>
+      client
+        .resources(classOf[FlinkSessionJob])
+        .inNamespace(namespace)
+        .withName(name)
+    } { stream =>
+      stream
+        // Eval SessionJobCR status
+        .map((action, cr) => SessionJobCRStatus.eval(action, cr) -> Option(cr.getStatus.getJobStatus).map(JobStatus.fromCR))
+        // Update SessionJobCR status cache
+        .tap(status => sessionJobCRSnaps.put((namespace, name), status))
+    }
 
 }

@@ -55,8 +55,6 @@ trait FlinkK8sOperator {
    */
   def triggerJobSavepoint(appId: Long, savepoint: JobSavepointDef): IO[Throwable, JobSavepointStatus]
 
-
-
 }
 
 object FlinkK8sOperator extends FlinkK8sOperator {
@@ -173,7 +171,6 @@ object FlinkK8sOperator extends FlinkK8sOperator {
                                 .takeUntil(_.isCompleted)
                                 .runLast
                                 .map(_.get)
-
     } yield triggerRs
 
   private type JobId = String

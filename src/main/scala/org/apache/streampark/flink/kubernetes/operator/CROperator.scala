@@ -13,6 +13,7 @@ import zio.{IO, UIO, ZIO}
 import java.util
 import scala.jdk.CollectionConverters.*
 import scala.util.chaining.scalaUtilChainingOps
+import org.apache.streampark.flink.kubernetes.util.PrettyStringExtension
 
 trait CROperator {
 

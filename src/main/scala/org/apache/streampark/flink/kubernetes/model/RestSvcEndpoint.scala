@@ -7,12 +7,18 @@ import org.apache.streampark.flink.kubernetes.observer.{reachFlinkRestType, Acce
  */
 case class RestSvcEndpoint(namespace: String, name: String, port: Int, clusterIP: String) {
 
-  lazy val dnsRest: String = s"http://$name.$namespace:$port"
+  lazy val dns: String = s"$name.$namespace"
+
+  lazy val dnsRest: String = s"http://$dns:$port"
 
   lazy val ipRest: String = s"http://$clusterIP:$port"
 
-  lazy val chooseRest: String = reachFlinkRestType match
+  def chooseRest: String = reachFlinkRestType match
     case AccessFlinkRestType.DNS => dnsRest
     case AccessFlinkRestType.IP  => ipRest
+
+  def chooseHost: String = reachFlinkRestType match
+    case AccessFlinkRestType.DNS => dns
+    case AccessFlinkRestType.IP  => clusterIP
 
 }
