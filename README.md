@@ -3,7 +3,8 @@
 Prototype of the flink-kubernetes-v2 module in the apache/incubator-streampark project.
 <br/>
 
-**Design Documentation**
+**Design Documentation**:
+
 [StreamPark Flink Kubernetes Module V2 · Craft Docs](https://www.craft.do/s/Pu5GI6vr4KIrj5)
 
 <br/>
