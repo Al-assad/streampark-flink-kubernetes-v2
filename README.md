@@ -8,6 +8,7 @@ Prototype of the flink-kubernetes-v2 module in the apache/incubator-streampark p
 [StreamPark Flink Kubernetes Module V2 · Craft Docs](https://www.craft.do/s/Pu5GI6vr4KIrj5)
 
 <br/>
+
 **Play Guide**:
 
 - Deploy Kubernetes locally;
